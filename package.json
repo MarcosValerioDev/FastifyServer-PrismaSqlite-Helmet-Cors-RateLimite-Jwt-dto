@@ -1,0 +1,15 @@
+{
+  "name": "fastifyserver1",
+  "version": "1.0.0",
+  "description": "Servidor fastify um servidor fastify com prisma sqlite, cors, helmet, e rate limite, jwt, padrão dto, class validator.",
+  "license": "ISC",
+  "author": "MarcosDev",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "fastify": "^5.12.7"
+  }
+}
