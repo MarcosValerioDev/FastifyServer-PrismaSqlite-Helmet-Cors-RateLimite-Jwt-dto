@@ -29,6 +29,7 @@ description: Sobe o servidor Fastify localmente e faz smoke test das rotas (heal
    - `/auth/login` acima de 5 req/min → **429**
    - Resposta nunca contém `passwordHash`
    - Headers do helmet (`Content-Security-Policy`, `X-Frame-Options`) presentes
+   - Swagger: `curl -s -L -o /dev/null -w "%{http_code}" $B/docs` → 200 e `$B/docs/json` lista as rotas novas em `paths` e os DTOs em `components.schemas`
 
 5. Encerre o servidor (Windows):
    ```bash

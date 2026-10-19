@@ -37,6 +37,8 @@ export const env = {
   CORS_ORIGIN: process.env.CORS_ORIGIN ?? '*',
   RATE_LIMIT_MAX: toNumber('RATE_LIMIT_MAX', 100),
   RATE_LIMIT_WINDOW: process.env.RATE_LIMIT_WINDOW ?? '1 minute',
+  // Swagger em /docs — por padrão ligado fora de produção
+  DOCS_ENABLED: (process.env.DOCS_ENABLED ?? String(nodeEnv !== 'production')) === 'true',
 } as const;
 
 export const isProduction = env.NODE_ENV === 'production';

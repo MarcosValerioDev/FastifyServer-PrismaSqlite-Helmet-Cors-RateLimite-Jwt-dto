@@ -9,6 +9,7 @@ Guia para o Claude Code trabalhar neste repositório. **Comunique-se sempre em P
 - Segurança: `@fastify/helmet`, `@fastify/cors`, `@fastify/rate-limit`
 - Autenticação: `@fastify/jwt` + `bcryptjs`
 - Validação: **padrão DTO** com `class-validator` + `class-transformer`
+- Documentação: `@fastify/swagger` + `@fastify/swagger-ui` em `/docs`, schemas gerados dos DTOs via `class-validator-jsonschema`
 
 ## Comandos
 
@@ -30,17 +31,19 @@ src/
   server.ts               # bootstrap (listen + graceful shutdown)
   app.ts                  # buildApp(): plugins, error handler, rotas
   config/env.ts           # leitura/validação das variáveis de ambiente
-  plugins/                # fastify-plugin: prisma, security (helmet/cors/rate-limit), auth (jwt)
+  plugins/                # fastify-plugin: prisma, security (helmet/cors/rate-limit), auth (jwt), swagger
   common/
     errors/               # AppError + subclasses e errorHandler global
     validation/           # validateDto(Dto, 'body' | 'params' | 'query')
-    dto/                  # DTOs compartilhados (IdParamDto)
+    docs/openapi.ts       # dtoSchemas(), ref(Dto), arrayOf(Dto), inline(Dto), bearerAuth
+    dto/                  # DTOs compartilhados (IdParamDto, ErrorResponseDto)
     security/password.ts  # hash/compare com bcrypt
   modules/<modulo>/
     dto/                  # DTOs de entrada (class-validator) e de saída (ResponseDto)
     <modulo>.repository.ts  # único lugar que acessa o Prisma
     <modulo>.service.ts     # regra de negócio, lança AppError
     <modulo>.controller.ts  # handlers (arrow functions) — só orquestram request/reply
+    <modulo>.schemas.ts     # FastifySchema de cada rota (somente documentação Swagger)
     <modulo>.routes.ts      # monta dependências e registra rotas
   types/fastify.d.ts      # augment de FastifyInstance e payload do JWT
 generated/prisma/         # client gerado (gitignored)
@@ -57,6 +60,9 @@ Fluxo: `routes → (preValidation: validateDto) → controller → service → r
 - **Erros**: lance subclasses de `AppError` (`NotFoundError`, `ConflictError`, ...). O `errorHandler` padroniza `{ statusCode, error, message, details? }`. Erros Prisma `P2002`→409 e `P2025`→404 já são tratados.
 - **Rotas protegidas**: `app.addHook('onRequest', app.authenticate)` no plugin do módulo; o usuário logado fica em `request.user.sub`.
 - **Rate limit específico**: `config: { rateLimit: { max, timeWindow } }` na rota.
+- **Swagger**: toda rota tem `schema` vindo de `<modulo>.schemas.ts` (tags, summary, security, body, params, response). Use `ref(Dto)` para body/response, `inline(Dto)` para params/querystring (o OpenAPI exige objeto inline) e `bearerAuth` em rotas protegidas. Esses schemas são **só documentação** — o `app.ts` troca o validador/serializador do Fastify por no-ops; nunca conte com Ajv para validar.
+- DTOs de **resposta** também precisam de decorators do class-validator (ex.: `@IsUUID`, `@IsDate`, `@ValidateNested` + `@Type`) para aparecerem no Swagger.
+- Evite `@IsNotEmpty` junto com `@MinLength(n)`: no schema gerado ele vira `minLength: 1` e sobrescreve o `n`.
 - Imports do Prisma vêm de `generated/prisma/client` (não de `@prisma/client`).
 - Mensagens de erro/validação em português.
 - Decorators exigem `experimentalDecorators` (já no tsconfig) e `import 'reflect-metadata'` (feito em `app.ts`).

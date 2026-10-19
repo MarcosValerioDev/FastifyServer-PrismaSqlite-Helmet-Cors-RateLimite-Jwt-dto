@@ -5,6 +5,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { loginSchema, registerSchema } from './auth.schemas';
 
 // Limite mais restrito para rotas sensíveis (força bruta)
 const authRateLimit = { rateLimit: { max: 5, timeWindow: '1 minute' } };
@@ -16,12 +17,12 @@ export async function authRoutes(app: FastifyInstance) {
 
   app.post(
     '/register',
-    { config: authRateLimit, preValidation: [validateDto(RegisterDto)] },
+    { schema: registerSchema, config: authRateLimit, preValidation: [validateDto(RegisterDto)] },
     controller.register,
   );
   app.post(
     '/login',
-    { config: authRateLimit, preValidation: [validateDto(LoginDto)] },
+    { schema: loginSchema, config: authRateLimit, preValidation: [validateDto(LoginDto)] },
     controller.login,
   );
 }

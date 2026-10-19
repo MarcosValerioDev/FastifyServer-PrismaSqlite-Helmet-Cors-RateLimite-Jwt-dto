@@ -23,25 +23,49 @@ Use o módulo `src/modules/users/` como referência canônica. Leia-o antes de c
 
 5. **Controller** `<modulo>.controller.ts` — handlers como **arrow functions** (para manter o `this`), tipados com `FastifyRequest<{ Params; Body; Querystring }>`. Sem regra de negócio.
 
-6. **Rotas** `<modulo>.routes.ts`:
+6. **Swagger** `<modulo>.schemas.ts` — um `FastifySchema` por rota, usando os helpers de `src/common/docs/openapi.ts`:
+   ```ts
+   const error = ref(ErrorResponseDto);
+   export const createSchema: FastifySchema = {
+     tags: ['Produtos'],
+     security: bearerAuth,              // se for protegido
+     summary: 'Cria um produto',
+     body: ref(CreateProdutoDto),
+     response: { 201: ref(ProdutoResponseDto), 400: error, 401: error },
+   };
+   // params/querystring precisam de inline(Dto) → exporte como função
+   export const findByIdSchema = (): FastifySchema => ({
+     tags: ['Produtos'], security: bearerAuth, summary: 'Busca por id',
+     params: inline(IdParamDto),
+     response: { 200: ref(ProdutoResponseDto), 404: error },
+   });
+   ```
+   Adicione a tag em `src/plugins/swagger.ts` (`openapi.tags`).
+
+7. **Rotas** `<modulo>.routes.ts`:
    ```ts
    export async function produtosRoutes(app: FastifyInstance) {
      const controller = new ProdutosController(new ProdutosService(new ProdutosRepository(app.prisma)));
      app.addHook('onRequest', app.authenticate); // se for protegido
-     app.post('/', { preValidation: [validateDto(CreateProdutoDto)] }, controller.create);
-     app.get('/:id', { preValidation: [validateDto(IdParamDto, 'params')] }, controller.findById);
+     app.post('/', { schema: createSchema, preValidation: [validateDto(CreateProdutoDto)] }, controller.create);
+     app.get(
+       '/:id',
+       { schema: findByIdSchema(), preValidation: [validateDto(IdParamDto, 'params')] },
+       controller.findById,
+     );
    }
    ```
 
-7. **Registrar** em `src/app.ts`: `await app.register(produtosRoutes, { prefix: '/produtos' });`
+8. **Registrar** em `src/app.ts`: `await app.register(produtosRoutes, { prefix: '/produtos' });`
 
-8. **Verificar**: `npm run typecheck` e depois a skill `testar-api` para as novas rotas.
+9. **Verificar**: `npm run typecheck`, a skill `testar-api` para as novas rotas e confira o módulo em `/docs` (ou `/docs/json`).
 
-9. Atualize a tabela de endpoints no `README.md`.
+10. Atualize a tabela de endpoints no `README.md`.
 
 ## Checklist
 
 - [ ] Nenhuma rota recebe body/params sem `validateDto`
 - [ ] Nenhuma resposta retorna entidade Prisma crua
+- [ ] Toda rota tem `schema` (Swagger) com tags, summary e responses
 - [ ] Rotas que alteram dados do usuário verificam dono (`request.user.sub`)
 - [ ] Typecheck passando

@@ -1,6 +1,6 @@
-# Fastify Server — Prisma SQLite · Helmet · CORS · Rate Limit · JWT · DTO
+# Fastify Server — Prisma SQLite · Helmet · CORS · Rate Limit · JWT · DTO · Swagger
 
-API REST em **Fastify 5 + TypeScript** com autenticação JWT, persistência em **SQLite via Prisma 7** e validação no **padrão DTO** com `class-validator`.
+API REST em **Fastify 5 + TypeScript** com autenticação JWT, persistência em **SQLite via Prisma 7**, validação no **padrão DTO** com `class-validator` e documentação **OpenAPI/Swagger** gerada a partir dos próprios DTOs.
 
 ## Stack
 
@@ -12,6 +12,7 @@ API REST em **Fastify 5 + TypeScript** com autenticação JWT, persistência em 
 | Segurança | `@fastify/helmet`, `@fastify/cors`, `@fastify/rate-limit` |
 | Autenticação | `@fastify/jwt` + `bcryptjs` |
 | Validação | `class-validator` + `class-transformer` (DTOs) |
+| Documentação | `@fastify/swagger` + `@fastify/swagger-ui` + `class-validator-jsonschema` |
 
 ## Requisitos
 
@@ -37,6 +38,8 @@ npm run dev
 ```
 
 Servidor em `http://localhost:3333` → teste com `GET /health`.
+
+📖 **Documentação interativa (Swagger UI):** `http://localhost:3333/docs` — especificação OpenAPI em JSON: `/docs/json`.
 
 > **npm 11+:** se o `npm install` avisar sobre *install scripts* não aprovados, rode
 > `npm install-scripts approve better-sqlite3 prisma @prisma/engines esbuild` e depois `npm rebuild`.
@@ -68,6 +71,7 @@ Servidor em `http://localhost:3333` → teste com `GET /health`.
 | `CORS_ORIGIN` | `*` | `*` ou lista separada por vírgula |
 | `RATE_LIMIT_MAX` | `100` | Requisições por janela (global, por IP) |
 | `RATE_LIMIT_WINDOW` | `1 minute` | Janela do rate limit |
+| `DOCS_ENABLED` | `true` fora de produção | Expõe o Swagger UI em `/docs` |
 
 ## Modelo de dados
 
@@ -89,6 +93,7 @@ model User {
 | Método | Rota | Auth | Descrição |
 |---|---|---|---|
 | `GET` | `/health` | — | Status do servidor |
+| `GET` | `/docs` | — | Swagger UI *(se `DOCS_ENABLED`)* |
 | `POST` | `/auth/register` | — | Cria usuário e retorna token *(5 req/min)* |
 | `POST` | `/auth/login` | — | Autentica e retorna token *(5 req/min)* |
 | `GET` | `/users/me` | JWT | Dados do usuário logado |
@@ -159,11 +164,13 @@ src/
 ├── plugins/
 │   ├── prisma.ts             # PrismaClient + adapter SQLite
 │   ├── security.ts           # helmet, cors, rate-limit
-│   └── auth.ts               # @fastify/jwt + decorator `authenticate`
+│   ├── auth.ts               # @fastify/jwt + decorator `authenticate`
+│   └── swagger.ts            # OpenAPI + Swagger UI em /docs
 ├── common/
 │   ├── errors/               # AppError e errorHandler global
 │   ├── validation/           # validateDto() — class-validator como preValidation
-│   ├── dto/                  # DTOs compartilhados
+│   ├── docs/openapi.ts       # DTO → JSON Schema (ref, inline, arrayOf)
+│   ├── dto/                  # DTOs compartilhados (IdParam, ErrorResponse)
 │   └── security/password.ts  # bcrypt
 ├── modules/
 │   ├── auth/                 # register / login
@@ -172,6 +179,7 @@ src/
 │       ├── users.repository.ts
 │       ├── users.service.ts
 │       ├── users.controller.ts
+│       ├── users.schemas.ts  # documentação Swagger das rotas
 │       └── users.routes.ts
 └── types/fastify.d.ts        # tipagens de FastifyInstance e JWT
 ```
@@ -189,6 +197,21 @@ rota → preValidation (validateDto) → controller → service → repository �
 - **Entrada:** classes com decorators do `class-validator`. O `validateDto` converte o payload com `plainToInstance`, valida com `whitelist` + `forbidNonWhitelisted` (campos extras geram 400) e substitui `request.body` / `params` / `query` pela instância validada.
 - **Saída:** `ResponseDto.fromEntity()` garante que dados sensíveis (como `passwordHash`) nunca sejam retornados.
 
+### Swagger a partir dos DTOs
+
+Os JSON Schemas do OpenAPI são gerados dos decorators do `class-validator` com `class-validator-jsonschema` — o DTO é a **única fonte da verdade** para validação e documentação. Cada módulo tem um `<modulo>.schemas.ts` que referencia os DTOs:
+
+```ts
+export const registerSchema: FastifySchema = {
+  tags: ['Auth'],
+  summary: 'Cadastra um usuário e retorna o token',
+  body: ref(RegisterDto),
+  response: { 201: ref(AuthResponseDto), 400: ref(ErrorResponseDto) },
+};
+```
+
+Os `schema` das rotas são **apenas documentação**: o validador e o serializador nativos do Fastify (Ajv / fast-json-stringify) foram substituídos por no-ops em `app.ts`, então quem valida é sempre o `validateDto` e as mensagens continuam em português.
+
 ## Segurança
 
 - **Helmet** — headers HTTP seguros (CSP, X-Frame-Options, HSTS...).
@@ -196,6 +219,7 @@ rota → preValidation (validateDto) → controller → service → repository �
 - **Rate limit** — global por IP + limite mais restrito em `/auth/*` contra força bruta.
 - **Senhas** — hash com bcrypt (10 rounds); login responde a mesma mensagem para e-mail ou senha incorretos.
 - **JWT** — assinado com `JWT_SECRET`, com expiração configurável; `.env` fora do Git.
+- **Swagger** — desativado por padrão em produção (`DOCS_ENABLED`); usa CSP própria em `/docs`.
 
 ## Claude Code
 

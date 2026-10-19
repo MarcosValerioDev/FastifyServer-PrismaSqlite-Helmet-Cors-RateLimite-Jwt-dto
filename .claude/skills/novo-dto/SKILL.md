@@ -35,6 +35,8 @@ Regras:
 - Mensagens de erro em português, no formato `<campo> deve ...`.
 - E-mails: `@Transform` para `trim().toLowerCase()` antes do `@IsEmail`.
 - Senhas: `@MinLength(8)` e `@MaxLength(72)` (limite do bcrypt).
+- Não combine `@IsNotEmpty` com `@MinLength(n)` — no Swagger ele vira `minLength: 1` e esconde o `n`.
+- O nome da classe vira o nome do schema em `/docs` (`components.schemas.<NomeDaClasse>`) — use nomes únicos.
 - Para objetos aninhados: `@ValidateNested()` + `@Type(() => OutroDto)`.
 - Paginação/filtros: crie um `QueryDto` e use `validateDto(QueryDto, 'query')`.
 - Reaproveite `src/common/dto/id-param.dto.ts` para `/:id`.
@@ -49,10 +51,17 @@ No controller, tipar: `FastifyRequest<{ Body: CreateProdutoDto }>` (import `type
 
 ## DTO de resposta
 
+Os decorators aqui não validam nada — servem para o `class-validator-jsonschema` gerar o schema do Swagger. Objetos aninhados: `@ValidateNested()` + `@Type(() => OutroResponseDto)`.
+
 ```ts
 export class ProdutoResponseDto {
+  @IsUUID()
   id: string;
+
+  @IsString()
   nome: string;
+
+  @IsDate()
   createdAt: Date;
 
   static fromEntity(p: Produto): ProdutoResponseDto {
